@@ -109,32 +109,39 @@ if prompt := st.chat_input("Vraag om code, een texture, of een 3D-model..."):
                     except Exception as e:
                         st.error(f"Fout bij afbeelding genereren: {e}")
 
-# --- OPTIE 3: 3D PREVIEW (SHAP-E) ---
+# --- OPTIE 3: 3D MODEL VIA HUGGING FACE SPACES (GRADIO) ---
         elif actie_keuze == "3D Preview (Shap-E)":
-            if not hf_token:
-                st.error("Je hebt een Hugging Face token nodig voor 3D modellen!")
-            else:
-                with st.spinner("Elliot boetseert in 3D... (dit kan even duren) 🔨"):
-                    try:
-                        # De "bulletproof" methode via requests
-                       # We proberen nu het Hunyuan3D model van Tencent, dat vaak stabieler is
-                        API_URL = "https://api-inference.huggingface.co/models/Tencent/Hunyuan3D-2.0"
-                        headers = {"Authorization": f"Bearer {hf_token}"}
-                        payload = {"inputs": prompt}
+            with st.spinner("Elliot omzeilt de limieten via Hugging Face Spaces... 🔨"):
+                try:
+                    from gradio_client import Client
+                    
+                    # We maken stiekem verbinding met de publieke Shap-E app op Hugging Face
+                    client = Client("hysts/Shap-E")
+                    
+                    # We roepen de text-to-3d functie van de app aan
+                    result_path = client.predict(
+                        prompt=prompt,
+                        seed=0,
+                        guidance_scale=15.0,
+                        num_inference_steps=64,
+                        api_name="/text-to-3d"
+                    )
+                    
+                    # De Space geeft een bestandspad terug naar de .glb file
+                    with open(result_path, "rb") as file:
+                        model_bytes = file.read()
                         
-                        response = requests.post(API_URL, headers=headers, json=payload)
-                        
-                        if response.status_code == 200:
-                            output_bytes = response.content
-                            st.image(output_bytes)
-                            st.markdown("*3D Preview gegenereerd (GIF-formaat).*")
-                            
-                            st.session_state.messages.append({
-                                "role": "assistant", 
-                                "content": "*3D preview gegenereerd.*",
-                                "image": output_bytes
-                            })
-                        else:
-                            st.error(f"De Hugging Face server gaf een fout: {response.status_code}. Dit betekent vaak dat het model even moet 'opwarmen'. Wacht 20 seconden en probeer het nog eens!")
-                    except Exception as e:
-                        st.error(f"Fout bij 3D model genereren: {e}")
+                    st.success("Gelukt! Je gratis 3D-bestand is binnengehaald.")
+                    st.download_button(
+                        label="📥 Download .GLB Bestand voor Unity/Roblox",
+                        data=model_bytes,
+                        file_name="elliot_3d_model.glb",
+                        mime="model/gltf-binary"
+                    )
+                    
+                    st.session_state.messages.append({
+                        "role": "assistant", 
+                        "content": f"*3D model gegenereerd voor: '{prompt}'. Gebruik de downloadknop!*"
+                    })
+                except Exception as e:
+                    st.error(f"Helaas, de openbare server is momenteel overbelast of slaapt: {e}")
