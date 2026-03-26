@@ -2,70 +2,40 @@ import streamlit as st
 from google import genai
 from google.genai import types
 
-# Pagina configuratie voor een tech-look
 st.set_page_config(page_title="Elliot AI - Game Dev Expert", page_icon="🎮", layout="wide")
 
-# Custom CSS voor een 'Dark Mode' game-dev vibe
-st.markdown("""
-    <style>
-    .stApp { background-color: #0e1117; color: #ffffff; }
-    .stChatMessage { border-radius: 10px; border: 1px solid #383d47; }
-    </style>
-    """, unsafe_allow_html=True)
-
-st.title("👨‍💻 Elliot AI")
-st.caption("Jouw gespecialiseerde expert voor Unity (C#), Roblox Studio (Luau) en algemene game-logica.")
-
-# --- API KEY CONFIGURATIE ---
+# --- API KEY ---
 if "GEMINI_API_KEY" in st.secrets:
     api_key = st.secrets["GEMINI_API_KEY"]
 else:
-    with st.sidebar:
-        api_key = st.text_input("Voer je Gemini API Key in:", type="password")
-        st.info("Tip: Voeg je key toe aan Streamlit Secrets op GitHub.")
+    api_key = st.sidebar.text_input("Voer je Gemini API Key in:", type="password")
 
-# --- ELLIOT'S PERSOONLIJKHEID (System Instruction) ---
-ELLIOT_SYSTEM_PROMPT = """
-Je bent 'Elliot AI', een wereldklasse expert in game development. 
-Je specialisaties zijn:
-1. Unity (C#): Je schrijft efficiënte scripts, legt uit hoe componenten werken en helpt met debugging.
-2. Roblox Studio (Luau): Je bent een expert in DataStores, RemoteEvents en geoptimaliseerde server-client communicatie.
-3. Wiskunde voor games: Vectoren, raycasting en quaternions leg je simpel uit.
-
-Stijlregels:
-- Antwoord altijd met concrete code-voorbeelden.
-- Gebruik 'Clean Code' principes.
-- Als je code schrijft voor Roblox, gebruik dan Luau. Voor Unity gebruik je C#.
-- Wees kortaf maar behulpzaam, zoals een ervaren lead developer.
-"""
+# --- ELLIOT'S SETUP ---
+ELLIOT_SYSTEM_PROMPT = "Je bent Elliot AI, een expert in Unity (C#) en Roblox (Luau). Geef altijd code-voorbeelden."
 
 with st.sidebar:
-    st.header("Elliot's Brein")
-    model_id = "gemini-2.5-flash" # Flash is perfect voor snelle code-suggesties
-    
-    thinking_level = st.select_slider(
-        "Complexiteit van logica:",
-        options=["MINIMAL", "LOW", "MEDIUM", "HIGH"],
-        value="HIGH" # Voor code willen we diepe logica
+    st.header("Elliot's Instellingen")
+    # We gebruiken hier de specifieke Thinking-model naam
+    model_id = st.selectbox(
+        "Kies Model:", 
+        ["gemini-2.0-flash-thinking-preview-01-21", "gemini-2.0-flash"]
     )
     
-    if st.button("Reset Sessie"):
-        st.session_state.messages = []
-        st.rerun()
+    # In plaats van HIGH/LOW gebruiken we een numeriek budget (hoeveel tokens mag hij 'denken')
+    thinking_budget = st.slider("Thinking Budget (tokens):", 1024, 32768, 4096, step=1024)
+    include_thoughts = st.checkbox("Toon Elliot's denkproces", value=True)
 
 # --- CHAT LOGICA ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Toon geschiedenis
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-# Chat input
-if prompt := st.chat_input("Vraag Elliot om een script of debug hulp..."):
+if prompt := st.chat_input("Vraag Elliot iets over game dev..."):
     if not api_key:
-        st.error("Elliot heeft een API-key nodig om na te denken!")
+        st.error("Vul je API-key in!")
     else:
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -75,15 +45,24 @@ if prompt := st.chat_input("Vraag Elliot om een script of debug hulp..."):
             client = genai.Client(api_key=api_key)
             
             with st.chat_message("assistant", avatar="👨‍💻"):
-                with st.spinner("Elliot schrijft code..."):
-                    # Hier voegen we de Systeemprompt samen met de gebruikersvraag
+                with st.spinner("Elliot is aan het rekenen..."):
+                    # DE FIX: Gebruik de juiste configuratie-structuur
+                    config_params = {
+                        "system_instruction": ELLIOT_SYSTEM_PROMPT,
+                        "temperature": 0.2
+                    }
+
+                    # Alleen thinking_config toevoegen als het model het ondersteunt
+                    if "thinking" in model_id:
+                        config_params["thinking_config"] = types.ThinkingConfig(
+                            include_thoughts=include_thoughts,
+                            include_thoughts_in_response=include_thoughts
+                        )
+
                     response = client.models.generate_content(
                         model=model_id,
-                        contents=[ELLIOT_SYSTEM_PROMPT, prompt],
-                        config=types.GenerateContentConfig(
-                            thinking_level=thinking_level,
-                            temperature=0.2 # Lager is beter voor accurate code
-                        )
+                        contents=prompt,
+                        config=types.GenerateContentConfig(**config_params)
                     )
                     
                     full_response = response.text
