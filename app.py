@@ -84,7 +84,7 @@ if prompt := st.chat_input("Wat gaan we vandaag bouwen?"):
                     try:
                         client = genai.Client(api_key=gemini_api_key)
                         response = client.models.generate_images(
-                            model="gemini-3-flash-image",
+                            model="imagen-3.0-generate-001",
                             prompt=prompt,
                             config=types.GenerateImagesConfig(number_of_images=1, output_mime_type="image/jpeg")
                         )
