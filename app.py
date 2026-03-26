@@ -29,7 +29,7 @@ with st.sidebar:
     
     actie_keuze = st.radio(
         "Wat moet Elliot doen?",
-        ["Code & Chat (Gemini)", "Concept Art (FLUX)", "3D Meesterwerk (InstantMesh)"]
+        ["Code & Chat (Gemini)", "Concept Art (FLUX)", "3D Meesterwerk (TripoSR)"]
     )
     
     if st.button("🗑️ Reset Chat"):
@@ -77,7 +77,7 @@ if prompt := st.chat_input("Wat gaan we vandaag bouwen?"):
                     except Exception as e:
                         st.error(f"Fout: {e}")
 
-        # --- OPTIE 2: CONCEPT ART (Hugging Face FLUX - Super Hoge Kwaliteit) ---
+        # --- OPTIE 2: CONCEPT ART ---
         elif actie_keuze == "Concept Art (FLUX)":
             if not hf_token:
                 st.error("Vul je Hugging Face token in de sidebar in!")
@@ -85,16 +85,14 @@ if prompt := st.chat_input("Wat gaan we vandaag bouwen?"):
                 with st.spinner("Elliot rendert een high-res design met FLUX... 🎨"):
                     try:
                         hf_client = InferenceClient(model="black-forest-labs/FLUX.1-schnell", token=hf_token)
-                        # Genereer de afbeelding (geeft een PIL Image terug)
                         image = hf_client.text_to_image(f"{prompt}, high quality game asset, masterpiece, ultra detailed")
-                        
                         st.image(image)
                         st.session_state.messages.append({"role": "assistant", "content": "*Concept art gegenereerd.*", "image": image})
                     except Exception as e:
                         st.error(f"Fout bij tekenen: {e}")
 
-        # --- OPTIE 3: 3D MEESTERWERK (FLUX + InstantMesh) ---
-        elif actie_keuze == "3D Meesterwerk (InstantMesh)":
+        # --- OPTIE 3: 3D MEESTERWERK (FLUX + TripoSR) ---
+        elif actie_keuze == "3D Meesterwerk (TripoSR)":
             if not hf_token:
                 st.error("Je hebt je Hugging Face token nodig voor deze magie!")
             else:
@@ -112,32 +110,32 @@ if prompt := st.chat_input("Wat gaan we vandaag bouwen?"):
                             image.save(tmp_file, format="PNG")
                             tijdelijk_pad = tmp_file.name
 
-                    # STAP 2: Gradio stuurt het naar InstantMesh
-                    with st.spinner("Stap 2: InstantMesh smeedt de 3D mesh (Dit kan 60 sec duren)... 🔨"):
+                    # STAP 2: Gradio stuurt het naar TripoSR
+                    with st.spinner("Stap 2: TripoSR smeedt de 3D mesh (Dit gaat supersnel!)... ⚡"):
                         try:
-                            # Gebruik de officiële InstantMesh Space
-                            space_client = Client("TencentARC/InstantMesh")
+                            # We stappen over naar de veel stabielere TripoSR Space
+                            space_client = Client("stabilityai/TripoSR")
                             
-                            st.info("Achtergrond verwijderen...")
-                            processed_img = space_client.predict(input_image=handle_file(tijdelijk_pad), do_remove_background=True, api_name="/preprocess")
+                            # TripoSR heeft meestal genoeg aan 1 predict call die alles doet
+                            final_result = space_client.predict(
+                                image_in=handle_file(tijdelijk_pad),
+                                do_remove_background=True,
+                                foreground_ratio=0.85,
+                                api_name="/process" # De standaard API naam voor TripoSR
+                            )
                             
-                            st.info("Diepte berekenen...")
-                            space_client.predict(api_name="/generate_mvs")
-                            
-                            st.info("3D Mesh bouwen...")
-                            final_result = space_client.predict(api_name="/make3d")
-                            
-                            glb_pad = final_result[2] if isinstance(final_result, tuple) else final_result
+                            # Resultaat is vaak een pad naar een .obj of .glb
+                            glb_pad = final_result[1] if isinstance(final_result, tuple) else final_result
                             
                             with open(glb_pad, "rb") as f:
                                 mesh_data = f.read()
                                 
                             st.success("Meesterwerk voltooid! 🎉")
-                            st.download_button("📥 Download .OBJ/.GLB", mesh_data, "game_meesterwerk.glb")
+                            st.download_button("📥 Download 3D Bestand", mesh_data, "tripo_meesterwerk.glb")
                             
                         except Exception as space_err:
-                            st.error(f"De 3D Server is even bezig: {space_err}")
-                            st.warning("Hack: Download de blauwdruk hierboven en probeer het handmatig op Hugging Face!")
+                            st.error(f"Ook deze 3D server ligt er helaas uit: {space_err}")
+                            st.warning("Ultimate Backup: Sla de blauwdruk (hierboven) op met rechtermuisknop en upload hem gratis op: huggingface.co/spaces/stabilityai/TripoSR")
                             
                 except Exception as e:
                     st.error(f"Fout tijdens het proces: {e}")
