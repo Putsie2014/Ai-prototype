@@ -2,6 +2,7 @@ import streamlit as st
 from google import genai
 from google.genai import types
 from huggingface_hub import InferenceClient
+import requests
 
 st.set_page_config(page_title="Elliot AI - Game Dev Expert", page_icon="🎮", layout="wide")
 
@@ -108,26 +109,31 @@ if prompt := st.chat_input("Vraag om code, een texture, of een 3D-model..."):
                     except Exception as e:
                         st.error(f"Fout bij afbeelding genereren: {e}")
 
-        # --- OPTIE 3: 3D PREVIEW (SHAP-E) ---
+# --- OPTIE 3: 3D PREVIEW (SHAP-E) ---
         elif actie_keuze == "3D Preview (Shap-E)":
             if not hf_token:
                 st.error("Je hebt een Hugging Face token nodig voor 3D modellen!")
             else:
-                with st.spinner("Elliot boetseert in 3D... (dit kan 30 sec duren) 🔨"):
+                with st.spinner("Elliot boetseert in 3D... (dit kan even duren) 🔨"):
                     try:
-                        hf_client = InferenceClient(api_key=hf_token)
-                        # Roept het model aan. Shap-E geeft via deze API vaak een GIF terug
-                        output_bytes = hf_client.post(
-                            model="openai/shap-e",
-                            json={"inputs": prompt}
-                        )
-                        st.image(output_bytes)
-                        st.markdown("*3D Preview gegenereerd (GIF-formaat).*")
+                        # De "bulletproof" methode via requests
+                        API_URL = "https://api-inference.huggingface.co/models/openai/shap-e"
+                        headers = {"Authorization": f"Bearer {hf_token}"}
+                        payload = {"inputs": prompt}
                         
-                        st.session_state.messages.append({
-                            "role": "assistant", 
-                            "content": "*3D preview gegenereerd.*",
-                            "image": output_bytes
-                        })
+                        response = requests.post(API_URL, headers=headers, json=payload)
+                        
+                        if response.status_code == 200:
+                            output_bytes = response.content
+                            st.image(output_bytes)
+                            st.markdown("*3D Preview gegenereerd (GIF-formaat).*")
+                            
+                            st.session_state.messages.append({
+                                "role": "assistant", 
+                                "content": "*3D preview gegenereerd.*",
+                                "image": output_bytes
+                            })
+                        else:
+                            st.error(f"De Hugging Face server gaf een fout: {response.status_code}. Dit betekent vaak dat het model even moet 'opwarmen'. Wacht 20 seconden en probeer het nog eens!")
                     except Exception as e:
-                        st.error(f"Fout bij 3D model genereren. Zorg dat je prompt in het Engels is! Foutmelding: {e}")
+                        st.error(f"Fout bij 3D model genereren: {e}")
