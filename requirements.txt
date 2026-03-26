@@ -1,3 +1,5 @@
 streamlit
 google-genai
 gradio_client
+huggingface_hub
+pillow
