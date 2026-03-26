@@ -2,44 +2,54 @@ import streamlit as st
 from google import genai
 from google.genai import types
 
-# Pagina configuratie
-st.set_page_config(page_title="Gemini Thinking App", page_icon="🧠", layout="wide")
+# Pagina configuratie voor een tech-look
+st.set_page_config(page_title="Elliot AI - Game Dev Expert", page_icon="🎮", layout="wide")
 
-# Styling voor een schone interface
+# Custom CSS voor een 'Dark Mode' game-dev vibe
 st.markdown("""
     <style>
-    .stChatMessage { border-radius: 15px; margin-bottom: 10px; }
+    .stApp { background-color: #0e1117; color: #ffffff; }
+    .stChatMessage { border-radius: 10px; border: 1px solid #383d47; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🧠 Gemini 3 Flash: Thinking & Reasoning")
-st.caption("Gebruik de nieuwste Gemini modellen via Streamlit en GitHub.")
+st.title("👨‍💻 Elliot AI")
+st.caption("Jouw gespecialiseerde expert voor Unity (C#), Roblox Studio (Luau) en algemene game-logica.")
 
 # --- API KEY CONFIGURATIE ---
-# Controleer of de key in Streamlit Secrets staat, anders vraag erom in de sidebar
 if "GEMINI_API_KEY" in st.secrets:
     api_key = st.secrets["GEMINI_API_KEY"]
 else:
     with st.sidebar:
         api_key = st.text_input("Voer je Gemini API Key in:", type="password")
-        st.info("Tip: Voeg je key toe aan Streamlit Secrets om dit veld te verbergen.")
+        st.info("Tip: Voeg je key toe aan Streamlit Secrets op GitHub.")
 
-# --- SIDEBAR INSTELLINGEN ---
+# --- ELLIOT'S PERSOONLIJKHEID (System Instruction) ---
+ELLIOT_SYSTEM_PROMPT = """
+Je bent 'Elliot AI', een wereldklasse expert in game development. 
+Je specialisaties zijn:
+1. Unity (C#): Je schrijft efficiënte scripts, legt uit hoe componenten werken en helpt met debugging.
+2. Roblox Studio (Luau): Je bent een expert in DataStores, RemoteEvents en geoptimaliseerde server-client communicatie.
+3. Wiskunde voor games: Vectoren, raycasting en quaternions leg je simpel uit.
+
+Stijlregels:
+- Antwoord altijd met concrete code-voorbeelden.
+- Gebruik 'Clean Code' principes.
+- Als je code schrijft voor Roblox, gebruik dan Luau. Voor Unity gebruik je C#.
+- Wees kortaf maar behulpzaam, zoals een ervaren lead developer.
+"""
+
 with st.sidebar:
-    st.header("Model Instellingen")
-    model_id = st.selectbox(
-        "Kies een model:", 
-        ["gemini-2.5-flash", "gemini-3.1-pro-preview"],
-        index=0
-    )
+    st.header("Elliot's Brein")
+    model_id = "gemini-2.5-flash" # Flash is perfect voor snelle code-suggesties
     
     thinking_level = st.select_slider(
-        "Thinking Budget (Diepgang):",
+        "Complexiteit van logica:",
         options=["MINIMAL", "LOW", "MEDIUM", "HIGH"],
-        value="MEDIUM"
+        value="HIGH" # Voor code willen we diepe logica
     )
     
-    if st.button("Wis Geschiedenis"):
+    if st.button("Reset Sessie"):
         st.session_state.messages = []
         st.rerun()
 
@@ -47,32 +57,32 @@ with st.sidebar:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Toon eerdere berichten
+# Toon geschiedenis
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
 # Chat input
-if prompt := st.chat_input("Waar kan ik je bij helpen?"):
+if prompt := st.chat_input("Vraag Elliot om een script of debug hulp..."):
     if not api_key:
-        st.error("Voeg eerst een API-key toe!")
+        st.error("Elliot heeft een API-key nodig om na te denken!")
     else:
-        # Toon gebruikersbericht
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # Genereer antwoord
         try:
             client = genai.Client(api_key=api_key)
             
-            with st.chat_message("assistant"):
-                with st.spinner("Aan het nadenken..."):
+            with st.chat_message("assistant", avatar="👨‍💻"):
+                with st.spinner("Elliot schrijft code..."):
+                    # Hier voegen we de Systeemprompt samen met de gebruikersvraag
                     response = client.models.generate_content(
                         model=model_id,
-                        contents=prompt,
+                        contents=[ELLIOT_SYSTEM_PROMPT, prompt],
                         config=types.GenerateContentConfig(
-                            thinking_level=thinking_level
+                            thinking_level=thinking_level,
+                            temperature=0.2 # Lager is beter voor accurate code
                         )
                     )
                     
@@ -82,4 +92,4 @@ if prompt := st.chat_input("Waar kan ik je bij helpen?"):
             st.session_state.messages.append({"role": "assistant", "content": full_response})
             
         except Exception as e:
-            st.error(f"Er is een fout opgetreden: {e}")
+            st.error(f"Fout in Elliot's brein: {e}")
