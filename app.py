@@ -109,39 +109,28 @@ if prompt := st.chat_input("Vraag om code, een texture, of een 3D-model..."):
                     except Exception as e:
                         st.error(f"Fout bij afbeelding genereren: {e}")
 
-# --- OPTIE 3: 3D MODEL VIA HUGGING FACE SPACES (GRADIO) ---
-        elif actie_keuze == "3D Preview (Shap-E)":
-            with st.spinner("Elliot omzeilt de limieten via Hugging Face Spaces... 🔨"):
+# --- OPTIE 3: VERBETERD 3D MODEL (Hunyuan3D-2.0) ---
+        elif actie_keuze == "3D Preview (Shap-E)": # Je kunt de naam in de UI aanpassen naar 'HQ 3D'
+            with st.spinner("Elliot boetseert met precisie... Dit duurt even! 🔨"):
                 try:
-                    from gradio_client import Client
+                    # We gebruiken nu Hunyuan3D-2.0, dit is VEEL beter dan Shap-E
+                    API_URL = "https://api-inference.huggingface.co/models/Tencent/Hunyuan3D-2.0"
+                    headers = {"Authorization": f"Bearer {hf_token}"}
                     
-                    # We maken stiekem verbinding met de publieke Shap-E app op Hugging Face
-                    client = Client("hysts/Shap-E")
+                    # We sturen een prompt die het model dwingt om 'clean' te werken
+                    payload = {
+                        "inputs": f"High quality 3D game asset, detailed mesh, {prompt}",
+                        "parameters": {"generate_mesh": True} 
+                    }
                     
-                    # We roepen de text-to-3d functie van de app aan
-                    result_path = client.predict(
-                        prompt=prompt,
-                        seed=0,
-                        guidance_scale=15.0,
-                        num_inference_steps=64,
-                        api_name="/text-to-3d"
-                    )
+                    response = requests.post(API_URL, headers=headers, json=payload)
                     
-                    # De Space geeft een bestandspad terug naar de .glb file
-                    with open(result_path, "rb") as file:
-                        model_bytes = file.read()
+                    if response.status_code == 200:
+                        model_data = response.content
+                        st.success("Model gegenereerd met hoge precisie!")
+                        st.download_button("📥 Download HQ .GLB", model_data, "game_asset.glb")
+                    else:
+                        st.warning("De HQ-server is druk. Probeer over 10 seconden nog eens.")
                         
-                    st.success("Gelukt! Je gratis 3D-bestand is binnengehaald.")
-                    st.download_button(
-                        label="📥 Download .GLB Bestand voor Unity/Roblox",
-                        data=model_bytes,
-                        file_name="elliot_3d_model.glb",
-                        mime="model/gltf-binary"
-                    )
-                    
-                    st.session_state.messages.append({
-                        "role": "assistant", 
-                        "content": f"*3D model gegenereerd voor: '{prompt}'. Gebruik de downloadknop!*"
-                    })
                 except Exception as e:
-                    st.error(f"Helaas, de openbare server is momenteel overbelast of slaapt: {e}")
+                    st.error(f"Fout bij HQ generatie: {e}")
