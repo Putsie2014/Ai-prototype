@@ -17,16 +17,15 @@ Geef altijd werkende code-voorbeelden en leg complexe concepten simpel uit. Houd
 with st.sidebar:
     st.header("Elliot's Instellingen")
     
-    # FIX: 1.5-flash bovenaan gezet omdat deze wereldwijd wél een ruime Free Tier heeft
+    # We gebruiken nu de nieuwste, officiële modelnamen
     model_id = st.selectbox(
         "Kies Model:", 
         [
-            "gemini-1.5-flash", # Veiligste keuze (Gratis limiet)
-            "gemini-1.5-pro",   # Slimmer, maar strengere limiet
-            "gemini-2.0-flash-thinking-exp-01-21", # Let op: 0-limiet op gratis tier zonder billing!
-            "gemini-2.0-flash"  # Let op: Vaak 0-limiet in de EU
+            "gemini-2.5-flash",       # Snel en efficiënt voor code
+            "gemini-3.1-pro-preview", # Het krachtigste model van dit moment
+            "gemini-2.5-pro"
         ],
-        index=0 # Standaard op 1.5-flash
+        index=0
     )
     
     if st.button("Reset Chat"):
@@ -45,7 +44,7 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # --- CHAT INPUT & LOGICA ---
-if prompt := st.chat_input("Vraag Elliot iets over game dev..."):
+if prompt := st.chat_input("Vraag Elliot iets over Unity of Roblox..."):
     if not api_key:
         st.error("Vul je API-key in via het menu links!")
     else:
@@ -64,7 +63,7 @@ if prompt := st.chat_input("Vraag Elliot iets over game dev..."):
                         "temperature": 0.2
                     }
 
-                    # Alleen thinking aanzetten als het echt een thinking model is
+                    # Thinking logica
                     if "thinking" in model_id:
                         config_args["thinking_config"] = types.ThinkingConfig(
                             include_thoughts=True
@@ -93,8 +92,11 @@ if prompt := st.chat_input("Vraag Elliot iets over game dev..."):
             
         except Exception as e:
             error_msg = str(e)
-            # FIX: Vangt de 'uitgeput' foutmelding op en geeft direct de oplossing
-            if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
-                st.error("⚠️ **Quota Bereikt (429 Error)**\n\nGoogle blokkeert dit verzoek omdat de limiet van dit specifieke model is bereikt (of op 0 staat in jouw regio). \n\n**Oplossing:** Selecteer `gemini-1.5-flash` in het menu links en probeer het nog een keer!")
+            
+            # Slimme foutafhandeling in de chat
+            if "404" in error_msg or "NOT_FOUND" in error_msg:
+                st.error(f"⚠️ **Model niet gevonden (404 Error)**\n\nGoogle herkent het model `{model_id}` niet. Waarschijnlijk hebben ze de naam geüpdatet. Check Google AI Studio voor de exacte, huidige namen.")
+            elif "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+                st.warning("🛑 **Quota Bereikt of Geblokkeerd (429 Error)**\n\nGoogle weigert dit model uit te voeren. **Belangrijk voor Europese gebruikers:** Om de nieuwste modellen (zoals de 2.5 en 3.0 series) gratis te gebruiken, vereist Google AI Studio vaak dat je een betaalprofiel koppelt ter verificatie, zelfs als je onder de gratis limiet blijft. \n\n*Probeer een ander model in de sidebar of check je limieten op aistudio.google.com.*")
             else:
                 st.error(f"Er is iets misgegaan: {error_msg}")
