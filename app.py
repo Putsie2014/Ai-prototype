@@ -117,7 +117,8 @@ if prompt := st.chat_input("Vraag om code, een texture, of een 3D-model..."):
                 with st.spinner("Elliot boetseert in 3D... (dit kan even duren) 🔨"):
                     try:
                         # De "bulletproof" methode via requests
-                        API_URL = "https://api-inference.huggingface.co/models/openai/shap-e"
+                       # We proberen nu het Hunyuan3D model van Tencent, dat vaak stabieler is
+                        API_URL = "https://api-inference.huggingface.co/models/Tencent/Hunyuan3D-2.0"
                         headers = {"Authorization": f"Bearer {hf_token}"}
                         payload = {"inputs": prompt}
                         
