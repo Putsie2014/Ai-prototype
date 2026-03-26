@@ -24,7 +24,7 @@ with st.sidebar:
     
     actie_keuze = st.radio(
         "Wat moet Elliot doen?",
-        ["Code & Chat (Gemini)", "Concept Art (Nano Banana 2)", "3D Meesterwerk (InstantMesh)"]
+        ["Code & Chat (Gemini)", "Concept Art (Imagen)", "3D Meesterwerk (InstantMesh)"]
     )
     
     if st.button("🗑️ Reset Chat"):
@@ -76,13 +76,14 @@ if prompt := st.chat_input("Wat gaan we vandaag bouwen?"):
                         st.error(f"Fout: {e}")
 
         # --- OPTIE 2: CONCEPT ART ---
-        elif actie_keuze == "Concept Art (Nano Banana 2)":
+        elif actie_keuze == "Concept Art (Imagen)":
             if not gemini_api_key:
                 st.error("Je hebt een Gemini API key nodig!")
             else:
                 with st.spinner("Elliot tekent game assets... 🎨"):
                     try:
                         client = genai.Client(api_key=gemini_api_key)
+                        # HIER IS DE FIX: imagen-3.0-generate-001
                         response = client.models.generate_images(
                             model="imagen-3.0-generate-001",
                             prompt=prompt,
@@ -101,12 +102,13 @@ if prompt := st.chat_input("Wat gaan we vandaag bouwen?"):
             else:
                 try:
                     # STAP 1: AI tekent een strak plaatje voor het 3D model
-                    with st.spinner("Stap 1: Elliot tekent een blauwdruk met Nano Banana... 🎨"):
+                    with st.spinner("Stap 1: Elliot tekent een blauwdruk met Imagen... 🎨"):
                         client = genai.Client(api_key=gemini_api_key)
-                        # We forceren een strakke achtergrond voor betere 3D
                         strakke_prompt = f"A perfect 3D render of {prompt}, isolated on a pure white background, masterpiece game asset"
+                        
+                        # HIER IS DE FIX: imagen-3.0-generate-001
                         res_img = client.models.generate_images(
-                            model="gemini-3-flash-image",
+                            model="imagen-3.0-generate-001",
                             prompt=strakke_prompt,
                             config=types.GenerateImagesConfig(number_of_images=1, output_mime_type="image/jpeg")
                         )
@@ -123,7 +125,6 @@ if prompt := st.chat_input("Wat gaan we vandaag bouwen?"):
                         try:
                             hf_client = Client("TencentARC/InstantMesh")
                             
-                            # API calls voor InstantMesh (Preprocess -> MultiView -> 3D)
                             st.info("Achtergrond verwijderen...")
                             processed_img = hf_client.predict(input_image=handle_file(tijdelijk_pad), do_remove_background=True, api_name="/preprocess")
                             
@@ -133,7 +134,6 @@ if prompt := st.chat_input("Wat gaan we vandaag bouwen?"):
                             st.info("3D Mesh bouwen...")
                             final_result = hf_client.predict(api_name="/make3d")
                             
-                            # Gradio spaces geven vaak een tuple/lijst terug. We pakken het bestand.
                             glb_pad = final_result[2] if isinstance(final_result, tuple) else final_result
                             
                             with open(glb_pad, "rb") as f:
