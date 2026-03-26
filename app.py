@@ -1,31 +1,133 @@
-from huggingface_hub import InferenceClient
 import streamlit as st
+from google import genai
+from google.genai import types
+from huggingface_hub import InferenceClient
 
-# 1. Vul hier je token in (of zet hem in je Streamlit secrets)
-HF_TOKEN = "PLAK_HIER_JE_HF_TOKEN" 
+st.set_page_config(page_title="Elliot AI - Game Dev Expert", page_icon="🎮", layout="wide")
 
-# 2. Maak de 'client' aan
-client = InferenceClient(api_key=HF_TOKEN)
+# --- VEILIGE API KEYS (SECRETS) ---
+# We halen ze uit st.secrets, of we vragen erom via de sidebar als ze ontbreken.
+gemini_api_key = st.secrets.get("GEMINI_API_KEY", "")
+hf_token = st.secrets.get("HF_TOKEN", "")
 
-def maak_3d_preview(prompt):
-    st.info("Elliot is bezig met je 3D model... Even geduld.")
-    try:
-        # We sturen de vraag naar het Shap-E model
-        image_bytes = client.post(
-            model="openai/shap-e",
-            json={"inputs": prompt}
-        )
-        # De API stuurt een GIF terug
-        return image_bytes
-    except Exception as e:
-        st.error(f"Er ging iets mis: {e}")
-        return None
+# --- ELLIOT'S SETUP ---
+ELLIOT_SYSTEM_PROMPT = """Je bent Elliot AI, een expert in Unity (C#) en Roblox (Luau). 
+Geef altijd werkende code-voorbeelden en leg complexe concepten simpel uit. Houd je antwoorden efficiënt."""
 
-# 3. Gebruik het in je interface
-if st.button("Genereer 3D"):
-    if prompt:
-        resultaat = maak_3d_preview(prompt)
-        if resultaat:
-            st.image(resultaat, caption="Hier is je 3D preview!")
-    else:
-        st.warning("Typ eerst wat je wilt maken!")
+with st.sidebar:
+    st.header("⚙️ Elliot's Instellingen")
+    
+    if not gemini_api_key:
+        gemini_api_key = st.text_input("Voer je Gemini API Key in:", type="password")
+    if not hf_token:
+        hf_token = st.text_input("Voer je Hugging Face Token in:", type="password")
+        
+    st.divider()
+    
+    # De Master-Keuzelijst
+    actie_keuze = st.radio(
+        "Wat moet Elliot doen?",
+        ["Code & Chat (Gemini)", "Concept Art (Nano Banana 2)", "3D Preview (Shap-E)"]
+    )
+    
+    if st.button("🗑️ Reset Chat"):
+        st.session_state.messages = []
+        st.rerun()
+
+# --- CHAT GESCHIEDENIS ---
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Teken alle oude berichten opnieuw op het scherm
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+        if "thought" in msg and msg["thought"]:
+            with st.expander("🤔 Bekijk denkproces"):
+                st.write(msg["thought"])
+        if "image" in msg and msg["image"]:
+            st.image(msg["image"])
+
+# --- CHAT INPUT & LOGICA ---
+if prompt := st.chat_input("Vraag om code, een texture, of een 3D-model..."):
+    
+    # 1. Toon het bericht van de gebruiker
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    # 2. Reageer als Assistant
+    with st.chat_message("assistant", avatar="👨‍💻"):
+        
+        # --- OPTIE 1: CODE & CHAT ---
+        if actie_keuze == "Code & Chat (Gemini)":
+            if not gemini_api_key:
+                st.error("Je hebt een Gemini API key nodig voor deze functie!")
+            else:
+                with st.spinner("Elliot schrijft code... ⌨️"):
+                    try:
+                        client = genai.Client(api_key=gemini_api_key)
+                        response = client.models.generate_content(
+                            model="gemini-2.5-flash",
+                            contents=prompt,
+                            config=types.GenerateContentConfig(
+                                system_instruction=ELLIOT_SYSTEM_PROMPT,
+                                temperature=0.2
+                            )
+                        )
+                        st.markdown(response.text)
+                        st.session_state.messages.append({
+                            "role": "assistant", 
+                            "content": response.text
+                        })
+                    except Exception as e:
+                        st.error(f"Fout bij code genereren: {e}")
+
+        # --- OPTIE 2: CONCEPT ART (NANO BANANA 2) ---
+        elif actie_keuze == "Concept Art (Nano Banana 2)":
+            if not gemini_api_key:
+                st.error("Je hebt een Gemini API key nodig voor deze functie!")
+            else:
+                with st.spinner("Elliot tekent game assets... 🎨"):
+                    try:
+                        client = genai.Client(api_key=gemini_api_key)
+                        response = client.models.generate_images(
+                            model="gemini-3-flash-image",
+                            prompt=prompt,
+                            config=types.GenerateImagesConfig(number_of_images=1, output_mime_type="image/jpeg")
+                        )
+                        image_bytes = response.generated_images[0].image.image_bytes
+                        st.image(image_bytes)
+                        st.markdown("*Concept art klaar voor gebruik!*")
+                        
+                        st.session_state.messages.append({
+                            "role": "assistant", 
+                            "content": "*Concept art gegenereerd.*",
+                            "image": image_bytes
+                        })
+                    except Exception as e:
+                        st.error(f"Fout bij afbeelding genereren: {e}")
+
+        # --- OPTIE 3: 3D PREVIEW (SHAP-E) ---
+        elif actie_keuze == "3D Preview (Shap-E)":
+            if not hf_token:
+                st.error("Je hebt een Hugging Face token nodig voor 3D modellen!")
+            else:
+                with st.spinner("Elliot boetseert in 3D... (dit kan 30 sec duren) 🔨"):
+                    try:
+                        hf_client = InferenceClient(api_key=hf_token)
+                        # Roept het model aan. Shap-E geeft via deze API vaak een GIF terug
+                        output_bytes = hf_client.post(
+                            model="openai/shap-e",
+                            json={"inputs": prompt}
+                        )
+                        st.image(output_bytes)
+                        st.markdown("*3D Preview gegenereerd (GIF-formaat).*")
+                        
+                        st.session_state.messages.append({
+                            "role": "assistant", 
+                            "content": "*3D preview gegenereerd.*",
+                            "image": output_bytes
+                        })
+                    except Exception as e:
+                        st.error(f"Fout bij 3D model genereren. Zorg dat je prompt in het Engels is! Foutmelding: {e}")
