@@ -28,6 +28,3 @@ def generate_3d_instantmesh(prompt):
         except Exception as e:
             st.error(f"Gradio-fout: {e}")
             return None
-                        
-                except Exception as e:
-                    st.error(f"Fout bij HQ generatie: {e}")
