@@ -1,5 +1,4 @@
 import streamlit as st
-import hashlib
 import tempfile
 from google import genai
 from google.genai import types
@@ -8,44 +7,7 @@ from gradio_client import Client, handle_file
 st.set_page_config(page_title="Elliot AI - Game Dev Expert", page_icon="🎮", layout="wide")
 
 # ==========================================
-# 1. WACHTWOORD BEVEILIGING (HASHING)
-# ==========================================
-# Het wachtwoord om in te loggen is: Elliot2026
-# De lange code hieronder is de 'vingerafdruk' van dat wachtwoord. 
-# Zelfs als iemand deze code steelt, weten ze het wachtwoord niet!
-WACHTWOORD_HASH = st.secrets.get(
-    "ADMIN_PASSWORD_HASH", 
-    "6de1df59ecf0bb81d856411ddbd32791df83507ed6b0808cf70ca981bd2e0329" 
-)
-
-def check_password():
-    def password_entered():
-        # Vergelijk de hash van wat is getypt met de echte hash
-        input_hash = hashlib.sha256(st.session_state["password"].encode()).hexdigest()
-        if input_hash == WACHTWOORD_HASH:
-            st.session_state["password_correct"] = True
-            del st.session_state["password"] # Wis uit geheugen
-        else:
-            st.session_state["password_correct"] = False
-
-    if "password_correct" not in st.session_state:
-        st.title("🔐 Elliot AI - Beveiligde Toegang")
-        st.text_input("Voer de toegangscode in (hint: Elliot2026):", type="password", on_change=password_entered, key="password")
-        st.info("Deze server kost zware rekenkracht. Alleen voor geautoriseerde devs!")
-        return False
-    elif not st.session_state["password_correct"]:
-        st.text_input("Voer de toegangscode in:", type="password", on_change=password_entered, key="password")
-        st.error("🚫 Onjuiste code. Probeer het opnieuw.")
-        return False
-    return True
-
-# Stop het script als je niet bent ingelogd
-if not check_password():
-    st.stop()
-
-
-# ==========================================
-# 2. ELLIOT SETUP & MENU
+# 1. ELLIOT SETUP & MENU
 # ==========================================
 gemini_api_key = st.secrets.get("GEMINI_API_KEY", "")
 
@@ -70,7 +32,7 @@ with st.sidebar:
         st.rerun()
 
 # ==========================================
-# 3. CHAT GESCHIEDENIS
+# 2. CHAT GESCHIEDENIS
 # ==========================================
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -85,7 +47,7 @@ for msg in st.session_state.messages:
             st.image(msg["image"])
 
 # ==========================================
-# 4. CHAT INPUT & LOGICA
+# 3. CHAT INPUT & LOGICA
 # ==========================================
 if prompt := st.chat_input("Wat gaan we vandaag bouwen?"):
     
